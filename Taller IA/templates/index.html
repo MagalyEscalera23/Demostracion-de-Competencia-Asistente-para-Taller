@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Asistente Inteligente para Taller</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔧 Asistente Inteligente para Taller</h1>
+            <p>Describe la pieza y nuestro sistema la identificará por ti</p>
+        </header>
+
+        <!-- Navegación Sencilla -->
+        <div class="navegacion">
+            <button class="nav-btn active" onclick="mostrarSeccion('descripcion')">🔍 Buscar Descripción</button>
+            <button class="nav-btn" onclick="mostrarSeccion('inventario')">📦 Ver Inventario</button>
+            <button class="nav-btn" onclick="mostrarSeccion('agregar')">➕ Agregar Pieza</button>
+        </div>
+
+<!-- Sección Descripción -->
+<div id="seccion-descripcion" class="seccion activa">
+    <h3>🔍 Buscador Técnico</h3>
+    <p>Escribe cualquier pieza automotriz o sube una imagen para saber qué es y para qué sirve</p>
+    
+    <div class="buscador" style="flex-wrap: wrap;">
+        <input type="text" id="pieza_descripcion" 
+               placeholder="Ej: turbina, válvula, intercooler, sensor MAP..."
+               onkeypress="if(event.key=='Enter') buscarDescripcion()">
+
+        <!-- 📸 Subir foto -->
+        <div class="buscador-foto">
+            <label for="foto_pieza" class="subir-foto">
+                📷 Subir imagen
+                <input type="file" id="foto_pieza" accept="image/*" hidden onchange="analizarFoto()">
+            </label>
+            <div id="preview-foto">🖼️</div>
+        </div>
+
+        <button onclick="buscarDescripcion()">🤖 Obtener Descripción</button>
+    </div>
+
+    <div id="resultado-descripcion"></div>
+</div>
+
+
+
+        <!-- Sección Inventario -->
+        <div id="seccion-inventario" class="seccion">
+            <h3>📦 Buscar en Inventario</h3>
+            <p>Encuentra piezas específicas en nuestro almacén</p>
+            <div class="buscador">
+                <input type="text" id="descripcion" 
+                       placeholder="Ej: bujía, filtro de aceite, amortiguador..."
+                       onkeypress="if(event.key=='Enter') buscarInventario()">
+                <button onclick="buscarInventario()">🔍 Buscar</button>
+            </div>
+
+            <div class="ejemplos">
+                <h4>💡 Ejemplos:</h4>
+                <div class="ejemplos-lista">
+                    <span class="ejemplo" onclick="usarEjemplo(this)">bujía</span>
+                    <span class="ejemplo" onclick="usarEjemplo(this)">filtro</span>
+                    <span class="ejemplo" onclick="usarEjemplo(this)">amortiguador</span>
+                    <span class="ejemplo" onclick="usarEjemplo(this)">correa</span>
+                </div>
+            </div>
+
+            <div id="resultados"></div>
+        </div>
+
+        <!-- Sección Agregar Pieza -->
+        <div id="seccion-agregar" class="seccion">
+            <h3>➕ Agregar Nueva Pieza</h3>
+            <p>Añade una nueva pieza al inventario del taller</p>
+            
+            <form id="form-agregar" onsubmit="agregarPieza(event)">
+                <div class="form-grupo">
+                    <label>Nombre de la pieza *</label>
+                    <input type="text" name="nombre" required placeholder="Ej: Sensor de oxígeno">
+                </div>
+                
+                <div class="form-grupo">
+                    <label>Descripción</label>
+                    <input type="text" name="descripcion" placeholder="Breve descripción de la pieza">
+                </div>
+                
+                <div class="form-grupo">
+                    <label>Categoría</label>
+                    <select name="categoria">
+                        <option value="Motor">Motor</option>
+                        <option value="Frenos">Frenos</option>
+                        <option value="Suspensión">Suspensión</option>
+                        <option value="Eléctrico">Eléctrico</option>
+                        <option value="General" selected>General</option>
+                    </select>
+                </div>
+                
+                <div class="form-grupo">
+                    <label>Vehículos compatibles</label>
+                    <input type="text" name="vehiculos" placeholder="Ej: Toyota Corolla, Honda Civic">
+                </div>
+                
+                <div class="form-grupo">
+                    <label>Ubicación en taller *</label>
+                    <input type="text" name="ubicacion" required placeholder="Ej: Estante A1, Caja 15">
+                </div>
+                
+                <button type="submit" class="btn-agregar">💾 Guardar Pieza</button>
+            </form>
+            
+            <div id="resultado-agregar"></div>
+        </div>
+    </div>
+
+    <script>
+        // Navegación entre secciones
+        function mostrarSeccion(seccion) {
+            // Ocultar todas las secciones
+            document.querySelectorAll('.seccion').forEach(s => s.classList.remove('activa'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            
+            // Mostrar sección seleccionada
+            document.getElementById(`seccion-${seccion}`).classList.add('activa');
+            event.target.classList.add('active');
+        }
+
+        function usarEjemplo(elemento) {
+            document.getElementById('descripcion').value = elemento.textContent;
+            buscarInventario();
+        }
+
+        function buscarDescripcion() {
+            const nombrePieza = document.getElementById('pieza_descripcion').value;
+            const resultadoDiv = document.getElementById('resultado-descripcion');
+
+            if (!nombrePieza) {
+                resultadoDiv.innerHTML = '<div class="error">⚠️ Escribe el nombre de una pieza</div>';
+                return;
+            }
+
+            resultadoDiv.innerHTML = '<div class="cargando">🤖 Analizando información técnica...</div>';
+
+            fetch('/descripcion', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: `nombre_pieza=${encodeURIComponent(nombrePieza)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    resultadoDiv.innerHTML = `<div class="error">${data.error}</div>`;
+                } else {
+                    resultadoDiv.innerHTML = `
+                        <div class="descripcion-tecnica">
+                            <div class="descripcion-header">
+                                <h4>${data.pieza}</h4>
+                                <span class="badge-tecnica">📚 Info Técnica</span>
+                            </div>
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <div class="info-icon">❓</div>
+                                    <div class="info-content">
+                                        <strong>¿Qué es?</strong>
+                                        <p>${data.que_es}</p>
+                                    </div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-icon">🎯</div>
+                                    <div class="info-content">
+                                        <strong>¿Para qué sirve?</strong>
+                                        <p>${data.para_que_sirve}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                resultadoDiv.innerHTML = '<div class="error">❌ Error al buscar información técnica</div>';
+            });
+        }
+
+        function buscarInventario() {
+            const descripcion = document.getElementById('descripcion').value;
+            const resultadosDiv = document.getElementById('resultados');
+
+            if (!descripcion) {
+                resultadosDiv.innerHTML = '<div class="error">⚠️ Describe la pieza que buscas</div>';
+                return;
+            }
+
+            resultadosDiv.innerHTML = '<div class="cargando">🔍 Buscando en el inventario...</div>';
+
+            fetch('/buscar', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: `descripcion=${encodeURIComponent(descripcion)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    resultadosDiv.innerHTML = `<div class="error">${data.error}</div>`;
+                } else if (data.mensaje) {
+                    resultadosDiv.innerHTML = `<div class="mensaje">${data.mensaje}</div>`;
+                } else {
+                    let html = '<div class="resultados-lista">';
+                    data.forEach(pieza => {
+                        html += `
+                            <div class="resultado">
+                                <div class="resultado-header">
+                                    <h4>${pieza.nombre}</h4>
+                                    <span class="categoria">${pieza.categoria}</span>
+                                </div>
+                                <p class="descripcion-pieza">${pieza.descripcion}</p>
+                                <div class="detalles-pieza">
+                                    <div class="detalle">
+                                        <strong>🚗 Vehículos:</strong>
+                                        <span>${pieza.vehiculos}</span>
+                                    </div>
+                                    <div class="detalle">
+                                        <strong>📍 Ubicación:</strong>
+                                        <span class="ubicacion">${pieza.ubicacion}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    resultadosDiv.innerHTML = html;
+                }
+            })
+            .catch(error => {
+                resultadosDiv.innerHTML = '<div class="error">❌ Error al buscar en el inventario</div>';
+            });
+        }
+
+        function agregarPieza(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const resultadoDiv = document.getElementById('resultado-agregar');
+
+            resultadoDiv.innerHTML = '<div class="cargando">💾 Guardando pieza...</div>';
+
+            fetch('/agregar_pieza', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    resultadoDiv.innerHTML = `<div class="error">${data.error}</div>`;
+                } else {
+                    resultadoDiv.innerHTML = `<div class="mensaje">${data.mensaje}</div>`;
+                    event.target.reset();
+                }
+            })
+            .catch(error => {
+                resultadoDiv.innerHTML = '<div class="error">❌ Error al guardar la pieza</div>';
+            });
+        }
+
+            // Ejemplo automático en el buscador técnico
+            document.getElementById('pieza_descripcion').value = 'turbina';
+                buscarDescripcion();
+
+                function analizarFoto() {
+                    const archivo = document.getElementById('foto_pieza').files[0];
+                    const preview = document.getElementById('preview-foto');
+                    preview.innerHTML = '';
+
+                    if (!archivo) return;
+
+                        const lector = new FileReader();
+                        lector.onload = function(e) {
+                        preview.innerHTML = `<img src="${e.target.result}" alt="Vista previa de la pieza">`;
+                    };
+                        lector.readAsDataURL(archivo);
+
+                    // Aquí podrías enviar la imagen al backend para analizarla
+                    // (usando IA de visión artificial, si la implementas más adelante)
+                }
+
+                    function analizarFoto() {
+                        const fileInput = document.getElementById("foto_pieza");
+                        const file = fileInput.files[0];
+                        const preview = document.getElementById("preview-foto");
+
+                        if (!file) {
+                            preview.innerHTML = "🖼️";
+                            return;
+                        }
+
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                        const dataUrl = e.target.result;
+                        // Mostrar previsualización
+                        preview.innerHTML = `<img src="${dataUrl}" alt="Vista previa">`;
+
+                        // Enviar al mismo endpoint /descripcion como campo 'imagen' (form-urlencoded)
+                        fetch("/descripcion", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                            body: new URLSearchParams({ imagen: dataUrl })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                        if (data.error) {
+                                document.getElementById("resultado-descripcion").innerHTML = `<div class="error">${data.error}</div>`;
+                            }   else {
+                                    document.getElementById("resultado-descripcion").innerHTML = `
+                                            <div class="descripcion-tecnica">
+                                                <div class="descripcion-header">
+                                                    <h4>${data.pieza}</h4>
+                                                    <span class="badge-tecnica">📚 Info Técnica</span>
+                                                </div>
+                                                <div class="info-grid">
+                                                    <div class="info-item">
+                                                        <div class="info-content">
+                                                             <strong>❓ ¿Qué es?</strong>
+                                                            <p>${data.que_es}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div class="info-item">
+                                                        <div class="info-content">
+                                                            <strong>🎯 ¿Para qué sirve?</strong>
+                                                            <p>${data.para_que_sirve}</p>
+                                                        </div>
+                                                    </div>
+                                            </div>
+                                    </div>
+                                    `;
+                                }
+                            })
+                            .catch(err => {
+                                console.error("Error al enviar imagen:", err);
+                                document.getElementById("resultado-descripcion").innerHTML = `<div class="error">❌ Error al analizar la imagen.</div>`;
+                            });
+                        };
+
+                        reader.readAsDataURL(file);
+                    }
+
+
+    </script>
+</body>
+</html>
